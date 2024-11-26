@@ -25,3 +25,16 @@ def create_batches_by_token_count(comments, max_tokens= 32000):
         batches.append(batch)  # Add the remaining batch
 
     return batches
+
+
+def extract_verdict_and_remainder(comment_body):
+
+    pattern = r'\b(' + '|'.join(VERDICTS) + r')[,\.]?\b'
+    match = re.search(pattern, comment_body, flags=re.IGNORECASE)
+    if match:
+        # Extract the matched verdict in uppercase
+        verdict = match.group(1).upper()
+        # Remove the first occurrence of the verdict from the text
+        remaining_text = re.sub(pattern, '', comment_body, count=1, flags=re.IGNORECASE).strip()
+        return verdict, remaining_text  # Return both the verdict and the remaining text
+    return None, comment_body  # If no match, return None for verdict and the original text
