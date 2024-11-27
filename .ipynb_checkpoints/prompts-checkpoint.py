@@ -15,3 +15,4 @@ Then, give an CONCRETE example of why this rule would be beneficial. Write no mo
 
 GEN_SUMMARY = "Your task is to summarize the comments as CONCISELY as possible. No need for formal language or nice phrasing. Determine the number of UNIQUE viewpoints you can find. Beware, not each comment would have a unique viewpoint. DO NOT use your knowledge about the world, stick to what the participants said. Do not put quotes around your response. Give the ouput in a JSON format, with a number(from 1) for EACH UNIQUE viewpoint"
 
+

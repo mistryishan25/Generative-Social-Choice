@@ -1,40 +1,89 @@
-def create_batches_by_token_count(comments, max_tokens= 32000):
+import re
+import pandas as pd
+import tiktoken
+
+
+def count_tokens(text, model="llava-v1.5-7b-4096-preview"):
     """
-    Create batches of comments based on token count (approximated by word count).
-    Sentences are preserved, and we group comments into batches without tokenizing them.
+    Counts the number of tokens in a given text for a specific model.
     """
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+
+def split_into_batches(comments, max_input_tokens):
+    """Split comments into batches based on token limits."""
     batches = []
-    batch = []
-    batch_tokens = 0
+    current_batch = []
+    current_tokens = 0
 
-    # Iterate over comments and create batches
     for comment in comments:
-        # Count the number of words in the comment (approximates the token count)
-        comment_tokens = len(comment.split())
-
-        # If adding this comment would exceed the token limit, start a new batch
-        if batch_tokens + comment_tokens > max_tokens:
-            batches.append(batch)  # Save the current batch
-            batch = [comment]  # Start a new batch with this comment
-            batch_tokens = comment_tokens
+        tokens = count_tokens(comment, model=model)
+        if current_tokens + tokens <= max_input_tokens:
+            current_batch.append(comment)
+            current_tokens += tokens
         else:
-            batch.append(comment)  # Add the comment to the current batch
-            batch_tokens += comment_tokens
+            batches.append(current_batch)
+            current_batch = [comment]
+            current_tokens = tokens
 
-    if batch:
-        batches.append(batch)  # Add the remaining batch
+    if current_batch:
+        batches.append(current_batch)
 
     return batches
 
 
-def extract_verdict_and_remainder(comment_body):
 
-    pattern = r'\b(' + '|'.join(VERDICTS) + r')[,\.]?\b'
-    match = re.search(pattern, comment_body, flags=re.IGNORECASE)
-    if match:
-        # Extract the matched verdict in uppercase
-        verdict = match.group(1).upper()
-        # Remove the first occurrence of the verdict from the text
-        remaining_text = re.sub(pattern, '', comment_body, count=1, flags=re.IGNORECASE).strip()
-        return verdict, remaining_text  # Return both the verdict and the remaining text
-    return None, comment_body  # If no match, return None for verdict and the original text
+def clean_reddit_comments(comment):
+    """
+    Cleans a Reddit comment by:
+    - Removing newline characters (\n)
+    - Removing Markdown formatting for boldface (** or __) and italics (* or _)
+    - Removing extra spaces
+    - Stripping unnecessary quotes (like > at the beginning of lines)
+    """
+    # if comment.isinstance(list):
+    #     comment = comment[0]
+    # Remove newline characters
+    comment = comment.replace('\n', ' ')
+    
+    # Remove Markdown formatting for bold (**bold**) and italics (*italic* or _italic_)
+    comment = re.sub(r'(\*\*|__)(.*?)\1', r'\2', comment)  # Remove bold
+    comment = re.sub(r'(\*|_)(.*?)\1', r'\2', comment)    # Remove italics
+    
+    # Remove block quotes (lines starting with >)
+    comment = re.sub(r'^>\s?', '', comment, flags=re.MULTILINE)
+    
+    # Remove extra spaces
+    comment = re.sub(r'\s+', ' ', comment).strip()
+    
+    return comment
+
+# def replace_word(text, word):
+#     # Use regular expression to match the word with word boundaries, ignoring case
+#     if word in ["NTA", "YTA", "ESH", "NAH", "INFO", "YWBTA", "YTA"]:
+#         pattern = r'\b' + re.escape(word) + r'\b'
+
+#     return re.sub(pattern, '', text, flags=re.IGNORECASE).strip()
+
+def replace_word(text, word):
+    try:
+        # Handle NaN or non-string values (convert to empty string if NaN or None)
+        if pd.isna(text):
+            text = ""
+        if pd.isna(word):
+            word = ""
+        
+        # Ensure both text and word are strings
+        text = str(text)
+        word = str(word)
+        
+        # Replace the word using regex (case-insensitive)
+        pattern = r'\b' + re.escape(word) + r'\b'
+        return re.sub(pattern, '', text, flags=re.IGNORECASE).strip()
+    
+    except Exception as e:
+        print(f"Error processing text: {text}")
+        print(f"Error with word: {word}")
+        print(f"Exception: {e}")
+        return text  # Return the original text in case of error
